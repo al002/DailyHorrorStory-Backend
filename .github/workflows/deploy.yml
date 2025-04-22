@@ -11,15 +11,6 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Create deployment directory on VPS
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          script: |
-            mkdir -p ~/dailystory
             
       - name: Copy files to VPS
         uses: appleboy/scp-action@v0.1.7
@@ -27,6 +18,7 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
           source: |
             DailyStory.Api/
             compose.yaml
@@ -59,6 +51,7 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
           script: |
             cd /var/www/dailystory-api
             
