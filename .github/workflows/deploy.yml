@@ -20,30 +20,17 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
           source: |
-            ./DailyStory.Api
-            ./compose.yaml
-            ./compose.prod.yaml
-            ./.dockerignore
+            DailyStory.Api/[!bin]*/
+            DailyStory.Api/[!obj]*/
+            DailyStory.Api/*.cs
+            DailyStory.Api/*.csproj
+            DailyStory.Api/appsettings.json
+            DailyStory.Api/Dockerfile
+            compose.yaml
+            compose.prod.yaml
+            .dockerignore
           target: "/var/www/dailystory-api"
           strip_components: 0
-          exclude: |
-            **/.env
-            **/*.user
-            **/.vs/
-            **/.vscode/
-            **/.idea/
-            **/bin/
-            **/obj/
-            **/node_modules/
-            **/*.DotSettings*
-            **/Properties/launchSettings.json
-            **/.config/
-            **/DailyStory.Api.http
-            **/appsettings.Development.json
-            **/*.pfx
-            **/*.cer
-            **/*.key
-            **/secrets.json
           
       - name: Deploy application
         uses: appleboy/ssh-action@v1.0.3
