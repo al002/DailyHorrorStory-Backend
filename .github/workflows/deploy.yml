@@ -11,24 +11,28 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Create deployment archive
+        run: |
+          tar -czf deploy.tar.gz \
+            DailyStory.Api/[!bin]* \
+            DailyStory.Api/[!obj]* \
+            DailyStory.Api/*.cs \
+            DailyStory.Api/*.csproj \
+            DailyStory.Api/appsettings.json \
+            DailyStory.Api/Dockerfile \
+            compose.yaml \
+            compose.prod.yaml \
+            .dockerignore
             
-      - name: Copy files to VPS
+      - name: Copy archive to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
-          source: |
-            DailyStory.Api/[!bin]*/
-            DailyStory.Api/[!obj]*/
-            DailyStory.Api/*.cs
-            DailyStory.Api/*.csproj
-            DailyStory.Api/appsettings.json
-            DailyStory.Api/Dockerfile
-            compose.yaml
-            compose.prod.yaml
-            .dockerignore
+          source: "deploy.tar.gz"
           target: "/var/www/dailystory-api"
           strip_components: 0
           
@@ -41,6 +45,10 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           script: |
             cd /var/www/dailystory-api
+            
+            # Extract the archive
+            tar -xzf deploy.tar.gz
+            rm deploy.tar.gz
             
             # Create .env file with secrets
             cat > .env << EOL
