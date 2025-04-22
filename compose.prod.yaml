@@ -1,0 +1,25 @@
+# 生产环境配置
+services:
+  postgres:
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - /var/lib/postgresql/data:/var/lib/postgresql/data
+
+  dailystory.api:
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=dailystorydb;Username=postgres;Password=${POSTGRES_PASSWORD};
+      - ASPNETCORE_AiService__OpenRouterApiKey=${ASPNETCORE_AiService__OpenRouterApiKey}
+    depends_on:
+      postgres:
+        condition: service_healthy

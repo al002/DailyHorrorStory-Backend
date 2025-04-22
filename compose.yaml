@@ -1,16 +1,12 @@
 ﻿services:
   postgres:
     image: postgres:16.8-alpine
-    container_name: dailystory-postgres
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=dailystorydb
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"
-    restart: unless-stopped
     networks:
       - storynet
 
@@ -19,16 +15,10 @@
     build:
       context: .
       dockerfile: DailyStory.Api/Dockerfile
-    ports:
-      - "8080:8080"
     environment:
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=dailystorydb;Username=postgres;Password=postgres;
-      - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
-      - ASPNETCORE_AiService__OpenRouterApiKey=${ASPNETCORE_AiService__OpenRouterApiKey}
     depends_on:
       - postgres
-    restart: on-failure
     networks:
       - storynet
     

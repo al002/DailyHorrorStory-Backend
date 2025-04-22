@@ -1,6 +1,8 @@
 using DailyStory.Api.Data;
+using DailyStory.Api.Models;
 using DailyStory.Api.Options;
 using DailyStory.Api.Services;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -25,7 +27,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowNextJsDev", policy =>
     {
-        policy.WithOrigins("http://localhost:3000") // 替换为你的 Next.js 开发端口
+        policy.WithOrigins("http://localhost:3000")
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -74,29 +76,72 @@ if (app.Environment.IsDevelopment())
         .WithTags("Testing");
 }
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
+app.MapGet("/api/stories", async (
+        IStoryService storyService,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken cancellationToken = default) =>
     {
-        var forecast = Enumerable.Range(1, 5).Select(index =>
-                new WeatherForecast
-                (
-                    DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-                    Random.Shared.Next(-20, 55),
-                    summaries[Random.Shared.Next(summaries.Length)]
-                ))
-            .ToArray();
-        return forecast;
+        try
+        {
+            var stories = await storyService.GetStoriesAsync(page, pageSize, cancellationToken);
+            return Results.Ok(stories);
+        }
+        catch (Exception e)
+        {
+            return Results.Problem(
+                detail: e.Message,
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: "Failed to retrieve stories"
+            );
+        }
     })
-    .WithName("GetWeatherForecast")
+    .WithName("GetStories")
+    .WithTags("Stories")
+    .WithOpenApi();
+
+app.MapGet("/api/story/{date?}", async (
+        IStoryService storyService,
+        string? date,
+        CancellationToken cancellationToken = default) =>
+    {
+        try
+        {
+            Story? story;
+            
+            if (string.IsNullOrEmpty(date))
+            {
+                var stories = await storyService.GetStoriesAsync(1, 1, cancellationToken);
+                story = stories.FirstOrDefault();
+            }
+            else
+            {
+                if (!DateOnly.TryParse(date, out var parsedDate))
+                {
+                    return Results.BadRequest(new { error = "Invalid date format. Use YYYY-MM-DD" });
+                }
+                
+                story = await storyService.GetStoryByDateAsync(parsedDate, cancellationToken);
+            }
+
+            if (story == null)
+            {
+                return Results.NotFound(new { error = "Story not found" });
+            }
+
+            return Results.Ok(story);
+        }
+        catch (Exception e)
+        {
+            return Results.Problem(
+                detail: e.Message,
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: "Failed to retrieve story"
+            );
+        }
+    })
+    .WithName("GetStory")
+    .WithTags("Stories")
     .WithOpenApi();
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}

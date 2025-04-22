@@ -1,0 +1,78 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create deployment directory on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            mkdir -p ~/dailystory
+            
+      - name: Copy files to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          source: |
+            DailyStory.Api/
+            compose.yaml
+            compose.prod.yaml
+            .dockerignore
+          target: "/var/www/dailystory-api"
+          strip_components: 0
+          exclude: |
+            **/.env
+            **/*.user
+            **/.vs/
+            **/.vscode/
+            **/.idea/
+            **/bin/
+            **/obj/
+            **/node_modules/
+            **/*.DotSettings*
+            **/Properties/launchSettings.json
+            **/.config/
+            **/DailyStory.Api.http
+            **/appsettings.Development.json
+            **/*.pfx
+            **/*.cer
+            **/*.key
+            **/secrets.json
+          
+      - name: Deploy application
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /var/www/dailystory-api
+            
+            # Create .env file with secrets
+            cat > .env << EOL
+            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            ASPNETCORE_AiService__OpenRouterApiKey=${{ secrets.OPENROUTER_API_KEY }}
+            EOL
+            
+            # Stop and remove existing containers
+            docker compose -f compose.yaml -f compose.prod.yaml down
+            
+            # Build and start new containers
+            docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+            
+            # Clean up unused images
+            docker image prune -f

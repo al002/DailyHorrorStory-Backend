@@ -1,0 +1,17 @@
+# 开发环境配置
+services:
+  postgres:
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_PASSWORD=postgres
+
+  dailystory.api:
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=dailystorydb;Username=postgres;Password=postgres;
+      - ASPNETCORE_AiService__OpenRouterApiKey=${ASPNETCORE_AiService__OpenRouterApiKey}
+    volumes:
+      - ./DailyStory.Api:/app/DailyStory.Api
