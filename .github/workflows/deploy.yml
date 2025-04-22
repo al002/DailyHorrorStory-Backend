@@ -20,10 +20,10 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
           source: |
-            DailyStory.Api/
-            compose.yaml
-            compose.prod.yaml
-            .dockerignore
+            ./DailyStory.Api
+            ./compose.yaml
+            ./compose.prod.yaml
+            ./.dockerignore
           target: "/var/www/dailystory-api"
           strip_components: 0
           exclude: |
