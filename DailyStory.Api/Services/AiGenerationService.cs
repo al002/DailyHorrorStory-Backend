@@ -60,7 +60,7 @@ public class AiGenerationService : IAiGenerationService
         // System Prompt
         string systemPrompt = $"""
                                你是一位才华横溢的短篇小说作家。
-                               你的任务是创作一个引人入胜的短篇恐怖中文故事，最好是中式恐怖，要完成完整的起承转合，要有让人后怕的感觉。
+                               你的任务是创作一个引人入胜的短篇恐怖中文故事，需要是中式恐怖，要完成完整的起承转合，读完后要有让人后怕，背脊发凉的感觉。
                                你必须严格按照以下 JSON 结构响应，并且只响应 JSON 对象，不包含任何额外的解释性文字、代码块标记或任何其他非 JSON 内容。
                                JSON 结构:
                                {jsonSchema}
