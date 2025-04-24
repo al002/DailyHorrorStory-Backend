@@ -27,4 +27,4 @@ volumes:
     
 networks:
   storynet:
-    driver: bridge
+    name: storynet
