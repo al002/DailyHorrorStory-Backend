@@ -2,8 +2,6 @@
 services:
   postgres:
     restart: unless-stopped
-    ports:
-      - "0.0.0.0:5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
