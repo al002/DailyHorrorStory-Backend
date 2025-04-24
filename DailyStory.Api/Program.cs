@@ -35,6 +35,29 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync();
+
+        if (pendingMigrations.Any())
+        {
+            var logger = services.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("发现 {Count} 个待处理的数据库迁移，正在应用...", pendingMigrations.Count());
+            await dbContext.Database.MigrateAsync();
+            logger.LogInformation("数据库迁移应用成功。");
+        }
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "在启动时应用数据库迁移时发生错误。应用程序可能无法正常启动。");
+    }
+}
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
