@@ -68,36 +68,64 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// 添加 API key 认证中间件
+app.Use(async (context, next) =>
+{
+    // 只在生产环境检查 API key
+    if (app.Environment.IsProduction())
+    {
+        var apiKey = builder.Configuration["ApiKey"];
+        if (string.IsNullOrEmpty(apiKey))
+        {
+            throw new InvalidOperationException("API key not configured");
+        }
+
+        // 检查路径是否需要认证
+        var path = context.Request.Path.Value?.ToLower();
+        if (path?.StartsWith("/api/test/") == true)
+        {
+            var providedApiKey = context.Request.Headers["X-API-Key"].FirstOrDefault();
+            if (apiKey != providedApiKey)
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                await context.Response.WriteAsJsonAsync(new { error = "Invalid API key" });
+                return;
+            }
+        }
+    }
+    
+    await next();
+});
+
 app.MapGet("/api/ping", () => Results.Ok("Pong!"))
     .WithName("Ping")
     .WithTags("Health")
     .WithOpenApi();
 
-if (app.Environment.IsDevelopment())
-{
-    app.MapGet("/api/test/trigger-daily-generation",
-            async (IStoryService storyService, ILogger<Program> logger, CancellationToken cancellationToken) =>
-            {
-                logger.LogInformation("Triggering daily-generation");
-                try
-                {
-                    var story = await storyService.GetOrCreateTodayStoryAsync(cancellationToken);
-                    return Results.Ok(story);
-                }
-                catch (Exception e)
-                {
-                    logger.LogError(e, "Error occurred during daily-generation");
 
-                    return Results.Problem(
-                        detail: $"Generation error: {e.Message}",
-                        statusCode: StatusCodes.Status500InternalServerError,
-                        title: "Generation failed"
-                    );
-                }
-            })
-        .WithName("TriggerDailyStoryGenerationForTesting")
-        .WithTags("Testing");
-}
+app.MapGet("/api/test/trigger-daily-generation",
+        async (IStoryService storyService, ILogger<Program> logger, CancellationToken cancellationToken) =>
+        {
+            logger.LogInformation("Triggering daily-generation");
+            try
+            {
+                var story = await storyService.GetOrCreateTodayStoryAsync(cancellationToken);
+                return Results.Ok(story);
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e, "Error occurred during daily-generation");
+
+                return Results.Problem(
+                    detail: $"Generation error: {e.Message}",
+                    statusCode: StatusCodes.Status500InternalServerError,
+                    title: "Generation failed"
+                );
+            }
+        })
+    .WithName("TriggerDailyStoryGenerationForTesting")
+    .WithTags("Testing");
+
 
 app.MapGet("/api/stories", async (
         IStoryService storyService,

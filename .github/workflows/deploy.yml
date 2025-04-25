@@ -54,6 +54,7 @@ jobs:
             cat > .env << EOL
             POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
             ASPNETCORE_AiService__OpenRouterApiKey=${{ secrets.OPENROUTER_API_KEY }}
+            ASPNETCORE_ApiKey=${{ secrets.API_KEY }}
             EOL
             
             # Stop and remove existing containers

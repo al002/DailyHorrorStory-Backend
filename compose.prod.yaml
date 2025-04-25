@@ -20,6 +20,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=dailystorydb;Username=postgres;Password=${POSTGRES_PASSWORD};
       - ASPNETCORE_AiService__OpenRouterApiKey=${ASPNETCORE_AiService__OpenRouterApiKey}
+      - ASPNETCORE_ApiKey=${ASPNETCORE_ApiKey}
     depends_on:
       postgres:
         condition: service_healthy
