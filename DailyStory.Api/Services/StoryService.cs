@@ -10,12 +10,43 @@ public class StoryService : IStoryService
     private readonly AppDbContext _dbContext;
     private readonly IAiGenerationService _aiService;
     private readonly ILogger<StoryService> _logger;
+    private const int MaxRetries = 3;
+    private static readonly TimeSpan InitialRetryDelay = TimeSpan.FromSeconds(10);
 
     public StoryService(AppDbContext dbContext, IAiGenerationService aiService, ILogger<StoryService> logger)
     {
         _dbContext = dbContext;
         _aiService = aiService;
         _logger = logger;
+    }
+
+    private async Task<(string Title, string Content)> GenerateStoryWithRetryAsync(CancellationToken cancellationToken)
+    {
+        var retryCount = 0;
+        var delay = InitialRetryDelay;
+
+        while (true)
+        {
+            try
+            {
+                return await _aiService.GenerateStoryAsync(cancellationToken: cancellationToken);
+            }
+            catch (Exception e)
+            {
+                retryCount++;
+                if (retryCount >= MaxRetries)
+                {
+                    _logger.LogError(e, "Failed to generate story after {RetryCount} attempts", retryCount);
+                    throw new ApplicationException($"Failed to generate story after {retryCount} attempts", e);
+                }
+
+                _logger.LogWarning(e, "Failed to generate story (attempt {RetryCount} of {MaxRetries}), retrying in {Delay}...", 
+                    retryCount, MaxRetries, delay);
+
+                await Task.Delay(delay, cancellationToken);
+                delay *= 2; // 指数退避
+            }
+        }
     }
 
     public async Task<Story> GetOrCreateTodayStoryAsync(CancellationToken cancellationToken = default)
@@ -39,7 +70,7 @@ public class StoryService : IStoryService
 
         try
         {
-            var (title, content) = await _aiService.GenerateStoryAsync(cancellationToken: cancellationToken);
+            var (title, content) = await GenerateStoryWithRetryAsync(cancellationToken);
 
             newStory = new Story()
             {
@@ -56,7 +87,7 @@ public class StoryService : IStoryService
             return newStory;
         }
         catch (DbUpdateException e) when (e.InnerException is PostgresException pgEx &&
-                                          pgEx.SqlState == PostgresErrorCodes.UniqueViolation)
+                                        pgEx.SqlState == PostgresErrorCodes.UniqueViolation)
         {
             _dbContext.Entry(newStory).State = EntityState.Detached;
             
@@ -71,8 +102,8 @@ public class StoryService : IStoryService
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
-            throw new ApplicationException("Unable to create new story");
+            _logger.LogError(e, "Failed to create new story");
+            throw new ApplicationException("Unable to create new story", e);
         }
         
         throw new ApplicationException("Unable to create new story");
