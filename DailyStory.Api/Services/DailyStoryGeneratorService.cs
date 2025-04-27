@@ -13,25 +13,25 @@ public class DailyStoryGeneratorService : IHostedService
         _logger = logger;
         _scopeFactory = scopeFactory;
     }
-    
+
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Starting daily story generator, will generate at {Time} UTC daily", TargetTimeUtc);
 
-        var nowUtc = DateTime.UtcNow;
-        var targetTimeToday = DateTime.UtcNow.Date.Add(TargetTimeUtc.ToTimeSpan());
-        
+        DateTime nowUtc = DateTime.UtcNow;
+        DateTime targetTimeToday = DateTime.UtcNow.Date.Add(TargetTimeUtc.ToTimeSpan());
+
         // 如果当前时间已经过了今天的目标时间，立即生成一次
         if (nowUtc > targetTimeToday)
         {
-            _logger.LogInformation("Current time {CurrentTime} UTC is past today's target time {TargetTime} UTC, generating story immediately", 
+            _logger.LogInformation("Current time {CurrentTime} UTC is past today's target time {TargetTime} UTC, generating story immediately",
                 nowUtc, targetTimeToday);
             await DoWorkAsync();
         }
 
-        var initialDelay = CalculateInitialDelay();
+        TimeSpan initialDelay = CalculateInitialDelay();
         _timer = new Timer(DoWorkCallback, null, initialDelay, _checkInterval);
-        
+
         _logger.LogInformation("Next story will be generated in {Delay}", initialDelay);
         return;
     }
@@ -52,11 +52,11 @@ public class DailyStoryGeneratorService : IHostedService
 
     private TimeSpan CalculateInitialDelay()
     {
-        var nowUtc = DateTime.UtcNow;
-        var targetTimeToday = DateTime.UtcNow.Date.Add(TargetTimeUtc.ToTimeSpan());
+        DateTime nowUtc = DateTime.UtcNow;
+        DateTime targetTimeToday = DateTime.UtcNow.Date.Add(TargetTimeUtc.ToTimeSpan());
 
-        var delay = targetTimeToday - nowUtc;
-        
+        TimeSpan delay = targetTimeToday - nowUtc;
+
         // 如果今天的目标时间已经过了，就等到明天的目标时间
         if (delay <= TimeSpan.Zero)
         {
@@ -73,15 +73,15 @@ public class DailyStoryGeneratorService : IHostedService
 
     private async Task DoWorkAsync()
     {
-        var executionTime = DateTime.UtcNow;
+        DateTime executionTime = DateTime.UtcNow;
         _logger.LogInformation("Daily story generator started at {ExecutionTime} UTC", executionTime);
 
-        using (var scope = _scopeFactory.CreateScope())
+        using (IServiceScope scope = _scopeFactory.CreateScope())
         {
-            var storyService = scope.ServiceProvider.GetRequiredService<IStoryService>();
+            IStoryService storyService = scope.ServiceProvider.GetRequiredService<IStoryService>();
             try
             {
-                var story = await storyService.GetOrCreateTodayStoryAsync();
+                Models.Story story = await storyService.GetOrCreateTodayStoryAsync();
                 _logger.LogInformation("Daily story generated, ID: {StoryId}, Date: {StoryDate}", story.Id, story.Date);
             }
             catch (Exception e)
@@ -89,7 +89,7 @@ public class DailyStoryGeneratorService : IHostedService
                 _logger.LogError(e, "Daily story generation failed");
             }
         }
-        
+
         _logger.LogInformation("Daily story generator finished");
     }
 }

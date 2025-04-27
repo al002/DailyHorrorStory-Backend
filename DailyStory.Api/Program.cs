@@ -5,9 +5,9 @@ using DailyStory.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-var builder = WebApplication.CreateBuilder(args);
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+string? connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -33,19 +33,19 @@ builder.Services.AddCors(options =>
     });
 });
 
-var app = builder.Build();
+WebApplication app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+using (IServiceScope scope = app.Services.CreateScope())
 {
-    var services = scope.ServiceProvider;
+    IServiceProvider services = scope.ServiceProvider;
     try
     {
-        var dbContext = services.GetRequiredService<AppDbContext>();
-        var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync();
+        AppDbContext dbContext = services.GetRequiredService<AppDbContext>();
+        IEnumerable<string> pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync();
 
         if (pendingMigrations.Any())
         {
-            var logger = services.GetRequiredService<ILogger<Program>>();
+            ILogger<Program> logger = services.GetRequiredService<ILogger<Program>>();
             logger.LogInformation("发现 {Count} 个待处理的数据库迁移，正在应用...", pendingMigrations.Count());
             await dbContext.Database.MigrateAsync();
             logger.LogInformation("数据库迁移应用成功。");
@@ -53,7 +53,7 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        var logger = services.GetRequiredService<ILogger<Program>>();
+        ILogger<Program> logger = services.GetRequiredService<ILogger<Program>>();
         logger.LogError(ex, "在启动时应用数据库迁移时发生错误。应用程序可能无法正常启动。");
     }
 }
@@ -74,17 +74,17 @@ app.Use(async (context, next) =>
     // 只在生产环境检查 API key
     if (app.Environment.IsProduction())
     {
-        var apiKey = builder.Configuration["ApiKey"];
+        string? apiKey = builder.Configuration["ApiKey"];
         if (string.IsNullOrEmpty(apiKey))
         {
             throw new InvalidOperationException("API key not configured");
         }
 
         // 检查路径是否需要认证
-        var path = context.Request.Path.Value?.ToLower();
+        string? path = context.Request.Path.Value?.ToLower();
         if (path?.StartsWith("/api/test/") == true)
         {
-            var providedApiKey = context.Request.Headers["X-API-Key"].FirstOrDefault();
+            string? providedApiKey = context.Request.Headers["X-API-Key"].FirstOrDefault();
             if (apiKey != providedApiKey)
             {
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
@@ -93,7 +93,7 @@ app.Use(async (context, next) =>
             }
         }
     }
-    
+
     await next();
 });
 
@@ -109,7 +109,7 @@ app.MapGet("/api/test/trigger-daily-generation",
             logger.LogInformation("Triggering daily-generation");
             try
             {
-                var story = await storyService.GetOrCreateTodayStoryAsync(cancellationToken);
+                Story story = await storyService.GetOrCreateTodayStoryAsync(cancellationToken);
                 return Results.Ok(story);
             }
             catch (Exception e)
@@ -135,7 +135,7 @@ app.MapGet("/api/stories", async (
     {
         try
         {
-            var stories = await storyService.GetStoriesAsync(page, pageSize, cancellationToken);
+            List<Story> stories = await storyService.GetStoriesAsync(page, pageSize, cancellationToken);
             return Results.Ok(stories);
         }
         catch (Exception e)
@@ -159,19 +159,19 @@ app.MapGet("/api/story/{date?}", async (
         try
         {
             Story? story;
-            
+
             if (string.IsNullOrEmpty(date))
             {
-                var stories = await storyService.GetStoriesAsync(1, 1, cancellationToken);
+                List<Story> stories = await storyService.GetStoriesAsync(1, 1, cancellationToken);
                 story = stories.FirstOrDefault();
             }
             else
             {
-                if (!DateOnly.TryParse(date, out var parsedDate))
+                if (!DateOnly.TryParse(date, out DateOnly parsedDate))
                 {
                     return Results.BadRequest(new { error = "Invalid date format. Use YYYY-MM-DD" });
                 }
-                
+
                 story = await storyService.GetStoryByDateAsync(parsedDate, cancellationToken);
             }
 

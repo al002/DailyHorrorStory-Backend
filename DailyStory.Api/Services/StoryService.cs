@@ -22,8 +22,8 @@ public class StoryService : IStoryService
 
     private async Task<(string Title, string Content)> GenerateStoryWithRetryAsync(CancellationToken cancellationToken)
     {
-        var retryCount = 0;
-        var delay = InitialRetryDelay;
+        int retryCount = 0;
+        TimeSpan delay = InitialRetryDelay;
 
         while (true)
         {
@@ -40,7 +40,7 @@ public class StoryService : IStoryService
                     throw new ApplicationException($"Failed to generate story after {retryCount} attempts", e);
                 }
 
-                _logger.LogWarning(e, "Failed to generate story (attempt {RetryCount} of {MaxRetries}), retrying in {Delay}...", 
+                _logger.LogWarning(e, "Failed to generate story (attempt {RetryCount} of {MaxRetries}), retrying in {Delay}...",
                     retryCount, MaxRetries, delay);
 
                 await Task.Delay(delay, cancellationToken);
@@ -51,10 +51,10 @@ public class StoryService : IStoryService
 
     public async Task<Story> GetOrCreateTodayStoryAsync(CancellationToken cancellationToken = default)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        DateOnly today = DateOnly.FromDateTime(DateTime.UtcNow);
         _logger.LogInformation("Try to get or create {Date} story", today);
 
-        var existingStory = await _dbContext.Stories
+        Story? existingStory = await _dbContext.Stories
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.Date == today, cancellationToken);
 
@@ -63,14 +63,14 @@ public class StoryService : IStoryService
             _logger.LogInformation("Found {Date} story, Id: {StoryId}", today, existingStory.Id);
             return existingStory;
         }
-        
+
         _logger.LogInformation("Try to generate {Date} new story", today);
 
-        Story newStory = null;
+        Story? newStory = null;
 
         try
         {
-            var (title, content) = await GenerateStoryWithRetryAsync(cancellationToken);
+            (string title, string content) = await GenerateStoryWithRetryAsync(cancellationToken);
 
             newStory = new Story()
             {
@@ -90,8 +90,8 @@ public class StoryService : IStoryService
                                         pgEx.SqlState == PostgresErrorCodes.UniqueViolation)
         {
             _dbContext.Entry(newStory).State = EntityState.Detached;
-            
-            var concurrentlyCreatedStory = await _dbContext.Stories
+
+            Story? concurrentlyCreatedStory = await _dbContext.Stories
                 .AsNoTracking()
                 .FirstOrDefaultAsync(s => s.Date == today, cancellationToken);
 
@@ -105,13 +105,13 @@ public class StoryService : IStoryService
             _logger.LogError(e, "Failed to create new story");
             throw new ApplicationException("Unable to create new story", e);
         }
-        
+
         throw new ApplicationException("Unable to create new story");
     }
 
     public async Task<Story?> GetStoryByDateAsync(DateOnly date, CancellationToken cancellationToken = default)
     {
-        var story = await _dbContext.Stories
+        Story? story = await _dbContext.Stories
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.Date == date, cancellationToken);
 
@@ -134,7 +134,7 @@ public class StoryService : IStoryService
 
         _logger.LogInformation("Get stories, pageNumber: {PageNumber}, pageSize: {PageSize}", pageNumber, pageSize);
 
-        var stories = await _dbContext.Stories
+        List<Story> stories = await _dbContext.Stories
             .AsNoTracking()
             .OrderByDescending(s => s.Date)
             .Skip((pageNumber - 1) * pageSize)
